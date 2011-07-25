@@ -38,6 +38,10 @@ subprojects {
     testCompile spec.external.junit
   }
 
+  test {
+    jvmArgs = ["-Dlog4j.configuration=file:${new File(projectDir, '../conf/log4j.xml').canonicalPath}"]
+  }
+
   def scriptTask = task('scripts')
 
   def scripts = fileTree(dir: 'src/main/groovy', include: '*.groovy')

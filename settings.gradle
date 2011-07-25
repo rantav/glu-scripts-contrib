@@ -17,8 +17,9 @@
 // build the list dynamically
 def includeList = []
 
-new File(rootDir, "scripts").eachDir {
-  includeList << ":scripts:${it.name}".toString()
+new File(rootDir, "scripts").eachDir { File dir ->
+  if(dir.name != 'conf')
+    includeList << ":scripts:${dir.name}".toString()
 }
 
 include includeList as String[]
