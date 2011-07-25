@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2011 Yan Pujante
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+/**
+ * Configuring for all scripts
+ */
+import org.linkedin.gradle.tasks.SingleArtifactTask
+import org.apache.tools.ant.filters.ReplaceTokens
+import java.util.regex.Pattern
+
+subprojects {
+  apply plugin: 'groovy'
+  apply plugin: 'org.linkedin.release'
+
+  release {
+    releaseConfigurations << 'script'
+  }
+
+  dependencies {
+    compile spec.external.linkedinUtilsGroovy
+    compile spec.external.gluAgentAPI
+    groovy spec.external.groovy
+
+    testCompile spec.external.gluScriptsTestFwk
+    testCompile spec.external.junit
+  }
+
+  def scriptTask = task('scripts')
+
+  def scripts = fileTree(dir: 'src/main/groovy', include: '*.groovy')
+
+  version = computeVersion(scripts)
+
+  logger.lifecycle "${project.name} - ${version}"
+
+  scripts.each { File scriptFile ->
+    def baseName = scriptFile.name - '.groovy'
+    task([type: SingleArtifactTask], baseName) {
+      artifactFile        = scriptFile
+      artifactReleaseInfo =
+        [
+            name:           baseName,
+            extension:      'groovy',
+            configurations: ['script']
+        ]
+    }
+
+    scriptTask.dependsOn(baseName)
+  }
+}
+
+private String computeVersion(scripts)
+{
+  Pattern VERSION_REGEX = ~/def\s+version\s*=\s*'([^']+)'/
+
+  String version = null
+  scripts.each { File scriptFile ->
+    scriptFile.eachLine { String line ->
+      def matcher = VERSION_REGEX.matcher(line)
+      if(matcher.find())
+      {
+        String newVersion = matcher[0][1]
+        if(version != null && version != newVersion)
+          throw new IllegalStateException("different versions found ${version} != ${newVersion} for ${scripts}")
+        version = newVersion
+      }
+    }
+  }
+  if(version == null)
+    throw new IllegalStateException("could not compute version for ${scripts.collect {it.canonicalPath}}")
+
+  if(spec.version.endsWith('-SNAPSHOT'))
+    version = "${version}-SNAPSHOT".toString()
+  
+  return version
+}
